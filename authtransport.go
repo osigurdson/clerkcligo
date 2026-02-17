@@ -27,7 +27,7 @@ func (t *AuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req2.Header.Set("Authorization", "Bearer "+tok.AccessToken)
 	resp, err := base.RoundTrip(req2)
 	if err != nil {
-		return resp, nil
+		return nil, err
 	}
 
 	// If not 401, we are done

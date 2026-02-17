@@ -8,8 +8,8 @@ import (
 )
 
 type ClerkToken struct {
-	RefreshToken string    `json:"access_token"`
-	AccessToken  string    `json:"refresh_token"`
+	RefreshToken string    `json:"refresh_token"`
+	AccessToken  string    `json:"access_token"`
 	Expiry       time.Time `json:"expiry"`
 }
 
