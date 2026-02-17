@@ -11,11 +11,21 @@ import (
 
 func main() {
 	ctx := context.Background()
+	/*
+		original := clerkcligo.ClerkConf{
+			AccountURI:   "https://top-haddock-51.clerk.accounts.dev",
+			RedirectIP:   "127.0.0.1",
+			RedirectPort: 21222,
+			ClientID:     "uqoyQTDEq3yLqJeH",
+			Scopes:       []string{"email", "profile", "offline_access"},
+		}
+	*/
+
 	conf := clerkcligo.ClerkConf{
-		AccountURI:   "https://top-haddock-51.clerk.accounts.dev",
+		AccountURI:   "https://working-cod-73.clerk.accounts.dev",
 		RedirectIP:   "127.0.0.1",
 		RedirectPort: 21222,
-		ClientID:     "uqoyQTDEq3yLqJeH",
+		ClientID:     "dEZKq4ysSszh3bXQ",
 		Scopes:       []string{"email", "profile", "offline_access"},
 	}
 
@@ -50,7 +60,7 @@ func main() {
 	}
 
 	client := clerkCli.NewHttpClient(ctx)
-	res, err := client.Get("http://localhost.com/api/v1/stores")
+	res, err := client.Get("http://localhost:5000/api/v1/stores")
 	if err != nil {
 		panic(err)
 	}

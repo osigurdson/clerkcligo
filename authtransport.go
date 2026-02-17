@@ -1,6 +1,7 @@
 package clerkcligo
 
 import (
+	"fmt"
 	"net/http"
 )
 
@@ -23,7 +24,7 @@ func (t *AuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	// Clone request
 	req2 := req.Clone(req.Context())
-	req2.Header.Set("Authorization", "Bearer"+tok.AccessToken)
+	req2.Header.Set("Authorization", "Bearer "+tok.AccessToken)
 	resp, err := base.RoundTrip(req2)
 	if err != nil {
 		return resp, nil
@@ -40,7 +41,7 @@ func (t *AuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, err
 	}
 	retry := req.Clone(req.Context())
-	retry.Header.Set("Authorization", "Bearer"+newTok.AccessToken)
+	retry.Header.Set("Authorization", "Bearer "+newTok.AccessToken)
 
 	return base.RoundTrip(retry)
 }
