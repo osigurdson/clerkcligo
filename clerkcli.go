@@ -6,7 +6,10 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"net/url"
+	"sync"
+	"time"
 
 	"golang.org/x/oauth2"
 )
@@ -15,6 +18,8 @@ type ClerkCli struct {
 	Conf      ClerkConf
 	browserFn func(url string)
 	tokenMgr  ClerkTokenMgr
+	debug     bool
+	mu        sync.Mutex
 }
 
 func NewClerkCli(
@@ -26,8 +31,22 @@ func NewClerkCli(
 		Conf:      conf,
 		browserFn: browserFn,
 		tokenMgr:  tokenMgr,
+		debug:     true,
 	}
 	return c
+}
+
+func (c *ClerkCli) NewHttpClient(ctx context.Context) *http.Client {
+	transport := &AuthTransport{
+		Auth: c,
+		Base: http.DefaultTransport,
+	}
+
+	client := &http.Client{
+		Transport: transport,
+	}
+
+	return client
 }
 
 func (c *ClerkCli) Login(ctx context.Context) error {
@@ -45,27 +64,38 @@ func (c *ClerkCli) Login(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	c.printdbg(fmt.Sprintf("Login: Step 1 - Create /authorize url. URL: %s\n", authURL))
 
 	srv := startServer(state, c.Conf)
 	defer srv.shutdown(ctx)
+
+	c.printdbg("Login: Step 2 - Launching browser\n")
 	c.browserFn(authURL)
+
+	c.printdbg(fmt.Sprintf("Login: Step 3 - Wait for code on local server. Addr: %s\n", c.Conf.ListenAddr()))
 	code, err := srv.waitForCode(ctx)
 	if err != nil {
+		c.printdbg(fmt.Sprintf("Failed to receive code on local server. Err: %v\n", err))
 		return err
 	}
 
+	c.printdbg("Login: Step 4 - Exchange code for refresh and access tokens\n")
 	tok, err := exchangeCode(ctx, c.Conf, code, verifier)
 	if err != nil {
+		c.printdbg(fmt.Sprintf("Failed to exchange code for refresh / access tokens. Err: %v\n", err))
 		return err
 	}
 
 	clerkToken := ClerkToken{
 		RefreshToken: tok.RefreshToken,
 		AccessToken:  tok.AccessToken,
+		Expiry:       tok.Expiry,
 	}
 
+	c.printdbg("Login: Step 5 - Save token using provided ClerkTokenMgr SaveTokenFn\n")
 	err = c.tokenMgr.saveTokenFn(clerkToken)
 	if err != nil {
+		c.printdbg(fmt.Sprintf("Failed to save token. Err: %v\n", err))
 		return err
 	}
 	return nil
@@ -85,12 +115,50 @@ func (c *ClerkCli) createAuthorizeURL(
 	q.Set("response_type", "code")
 	q.Set("code_challenge_method", "S256")
 	q.Set("client_id", c.Conf.ClientID)
-	q.Set("redirect_uri", c.Conf.RedirectURI())
+	q.Set("redirect_uri", c.Conf.RedirectURL())
 	q.Set("scope", "email offline_access profile")
 	q.Set("state", state)
 	q.Set("code_challenge", challenge)
 	authURL.RawQuery = q.Encode()
 	return authURL.String(), nil
+}
+
+func (c *ClerkCli) getValidToken(
+	ctx context.Context,
+	forceRefresh bool,
+) (*oauth2.Token, error) {
+	// We lock this entire function in order to avoid refresh storms
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ctok, err := c.tokenMgr.loadTokenFn()
+	if err != nil {
+		return nil, err
+	}
+	tok := ctok.toOauthToken()
+
+	if !forceRefresh && tok.Expiry.After(time.Now().Add(30*time.Second)) {
+		return tok, nil
+	}
+
+	if tok.RefreshToken == "" {
+		return nil, fmt.Errorf("no refresh token available")
+	}
+
+	cfg := c.Conf.toOAuth2Config()
+	ts := cfg.TokenSource(ctx, tok)
+	newTok, err := ts.Token()
+	if err != nil {
+		return nil, err
+	}
+	newCtok := ClerkToken{
+		AccessToken:  newTok.AccessToken,
+		RefreshToken: newTok.RefreshToken,
+		Expiry:       newTok.Expiry,
+	}
+	if err = c.tokenMgr.saveTokenFn(newCtok); err != nil {
+		return nil, err
+	}
+	return newTok, nil
 }
 
 func createPKCEPair() (verifier string, challenge string, err error) {
@@ -120,15 +188,10 @@ func exchangeCode(
 	code string,
 	codeVerifier string,
 ) (*oauth2.Token, error) {
-	cfg := oauth2.Config{
-		ClientID:    conf.ClientID,
-		RedirectURL: conf.RedirectURI(),
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  conf.AccountURI + "/oauth/authorize",
-			TokenURL: conf.AccountURI + "/oauth/token",
-		},
-	}
 
+	cfg := conf.toOAuth2Config()
+	// Scopes aren't used for token exchange
+	cfg.Scopes = []string{}
 	tok, err := cfg.Exchange(
 		ctx,
 		code,
@@ -138,4 +201,11 @@ func exchangeCode(
 		return nil, err
 	}
 	return tok, nil
+}
+
+func (c *ClerkCli) printdbg(msg string) {
+	if !c.debug {
+		return
+	}
+	fmt.Print(msg)
 }

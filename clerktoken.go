@@ -1,10 +1,16 @@
 package clerkcligo
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+
+	"golang.org/x/oauth2"
+)
 
 type ClerkToken struct {
-	RefreshToken string
-	AccessToken  string
+	RefreshToken string    `json:"access_token"`
+	AccessToken  string    `json:"refresh_token"`
+	Expiry       time.Time `json:"expiry"`
 }
 
 type ClerkTokenMgr struct {
@@ -28,4 +34,12 @@ func NewClerkTokenMgr(
 		saveTokenFn: saveTokenFn,
 		loadTokenFn: loadTokenFn,
 	}, nil
+}
+
+func (c ClerkToken) toOauthToken() *oauth2.Token {
+	return &oauth2.Token{
+		AccessToken:  c.AccessToken,
+		RefreshToken: c.RefreshToken,
+		Expiry:       c.Expiry,
+	}
 }

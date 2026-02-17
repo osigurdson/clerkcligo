@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os/exec"
 
 	"github.com/osigurdson/clerkcligo"
@@ -15,6 +16,7 @@ func main() {
 		RedirectIP:   "127.0.0.1",
 		RedirectPort: 21222,
 		ClientID:     "uqoyQTDEq3yLqJeH",
+		Scopes:       []string{"email", "profile", "offline_access"},
 	}
 
 	var token *clerkcligo.ClerkToken
@@ -46,4 +48,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	client := clerkCli.NewHttpClient(ctx)
+	res, err := client.Get("http://localhost.com/api/v1/stores")
+	if err != nil {
+		panic(err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	fmt.Println(string(body))
 }
