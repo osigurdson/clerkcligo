@@ -1,13 +1,12 @@
-package clerkcligo
+package workoscligo
 
 import (
-	"fmt"
 	"net/http"
 )
 
 type AuthTransport struct {
 	Base http.RoundTripper
-	Auth *ClerkCli
+	Auth *WorkOSCli
 }
 
 func (t *AuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {

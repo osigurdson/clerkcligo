@@ -6,39 +6,40 @@ import (
 	"io"
 	"os/exec"
 
-	"github.com/osigurdson/clerkcligo"
+	"github.com/osigurdson/workoscligo"
 )
 
 func main() {
 	ctx := context.Background()
 	/*
-		original := clerkcligo.ClerkConf{
-			AccountURI:   "https://top-haddock-51.clerk.accounts.dev",
+		original := workoscligo.WorkOSConf{
+			AuthKitURI:   "https://your-org.authkit.app",
 			RedirectIP:   "127.0.0.1",
 			RedirectPort: 21222,
-			ClientID:     "uqoyQTDEq3yLqJeH",
-			Scopes:       []string{"email", "profile", "offline_access"},
+			ClientID:     "client_123",
+			Scopes:       []string{"openid", "profile", "email", "offline_access"},
 		}
 	*/
 
-	conf := clerkcligo.ClerkConf{
-		AccountURI:   "https://working-cod-73.clerk.accounts.dev",
+	conf := workoscligo.WorkOSConf{
+		AuthKitURI:   "https://surprising-cliff-63-staging.authkit.app",
 		RedirectIP:   "127.0.0.1",
 		RedirectPort: 21222,
-		ClientID:     "dEZKq4ysSszh3bXQ",
-		Scopes:       []string{"email", "profile", "offline_access"},
+		ClientID:     "client_01KHQ0D7B6Y3J3S7AXH9RQYX85",
+		Scopes:       []string{"openid", "profile", "email", "offline_access"},
 	}
 
-	var token *clerkcligo.ClerkToken
+	var token *workoscligo.WorkOSToken
 
-	mgr, err := clerkcligo.NewClerkTokenMgr(
-		func(newToken clerkcligo.ClerkToken) error {
+	mgr, err := workoscligo.NewWorkOSTokenMgr(
+		func(newToken workoscligo.WorkOSToken) error {
 			token = &newToken
+			fmt.Printf("token: %+v\n", token)
 			return nil
 		},
-		func() (clerkcligo.ClerkToken, error) {
+		func() (workoscligo.WorkOSToken, error) {
 			if token == nil {
-				return clerkcligo.ClerkToken{}, fmt.Errorf("Clerk token not found")
+				return workoscligo.WorkOSToken{}, fmt.Errorf("WorkOS token not found")
 			}
 			return *token, nil
 		},
@@ -48,18 +49,18 @@ func main() {
 		exec.Command("xdg-open", url).Start()
 	}
 
-	clerkCli := clerkcligo.NewClerkCli(
+	workosCli := workoscligo.NewWorkOSCli(
 		conf,
 		browser,
 		mgr,
 	)
 
-	err = clerkCli.Login(ctx)
+	err = workosCli.Login(ctx)
 	if err != nil {
 		panic(err)
 	}
 
-	client := clerkCli.NewHttpClient(ctx)
+	client := workosCli.NewHttpClient(ctx)
 	res, err := client.Get("http://localhost:5000/api/v1/stores")
 	if err != nil {
 		panic(err)

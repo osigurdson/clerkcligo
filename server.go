@@ -1,4 +1,4 @@
-package clerkcligo
+package workoscligo
 
 import (
 	"context"
@@ -13,7 +13,7 @@ type server struct {
 	codeCh chan string
 }
 
-func startServer(state string, conf ClerkConf) *server {
+func startServer(state string, conf WorkOSConf) *server {
 	errCh := make(chan error, 1)
 	codeCh := make(chan string, 1)
 	mux := http.NewServeMux()

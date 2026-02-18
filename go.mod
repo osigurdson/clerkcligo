@@ -1,4 +1,4 @@
-module github.com/osigurdson/clerkcligo
+module github.com/osigurdson/workoscligo
 
 go 1.25.7
 

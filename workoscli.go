@@ -1,4 +1,4 @@
-package clerkcligo
+package workoscligo
 
 import (
 	"context"
@@ -14,20 +14,20 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type ClerkCli struct {
-	Conf      ClerkConf
+type WorkOSCli struct {
+	Conf      WorkOSConf
 	browserFn func(url string)
-	tokenMgr  ClerkTokenMgr
+	tokenMgr  WorkOSTokenMgr
 	debug     bool
 	mu        sync.Mutex
 }
 
-func NewClerkCli(
-	conf ClerkConf,
+func NewWorkOSCli(
+	conf WorkOSConf,
 	browserFn func(url string),
-	tokenMgr ClerkTokenMgr,
-) *ClerkCli {
-	c := &ClerkCli{
+	tokenMgr WorkOSTokenMgr,
+) *WorkOSCli {
+	c := &WorkOSCli{
 		Conf:      conf,
 		browserFn: browserFn,
 		tokenMgr:  tokenMgr,
@@ -36,7 +36,7 @@ func NewClerkCli(
 	return c
 }
 
-func (c *ClerkCli) NewHttpClient(ctx context.Context) *http.Client {
+func (c *WorkOSCli) NewHttpClient(ctx context.Context) *http.Client {
 	transport := &AuthTransport{
 		Auth: c,
 		Base: http.DefaultTransport,
@@ -49,7 +49,7 @@ func (c *ClerkCli) NewHttpClient(ctx context.Context) *http.Client {
 	return client
 }
 
-func (c *ClerkCli) Login(ctx context.Context) error {
+func (c *WorkOSCli) Login(ctx context.Context) error {
 	verifier, challenge, err := createPKCEPair()
 	if err != nil {
 		return err
@@ -86,14 +86,14 @@ func (c *ClerkCli) Login(ctx context.Context) error {
 		return err
 	}
 
-	clerkToken := ClerkToken{
+	workosToken := WorkOSToken{
 		RefreshToken: tok.RefreshToken,
 		AccessToken:  tok.AccessToken,
 		Expiry:       tok.Expiry,
 	}
 
-	c.printdbg("Login: Step 5 - Save token using provided ClerkTokenMgr SaveTokenFn\n")
-	err = c.tokenMgr.saveTokenFn(clerkToken)
+	c.printdbg("Login: Step 5 - Save token using provided WorkOSTokenMgr SaveTokenFn\n")
+	err = c.tokenMgr.saveTokenFn(workosToken)
 	if err != nil {
 		c.printdbg(fmt.Sprintf("Failed to save token. Err: %v\n", err))
 		return err
@@ -101,11 +101,11 @@ func (c *ClerkCli) Login(ctx context.Context) error {
 	return nil
 }
 
-func (c *ClerkCli) createAuthorizeURL(
+func (c *WorkOSCli) createAuthorizeURL(
 	challenge string,
 	state string,
 ) (string, error) {
-	authorizeURL := fmt.Sprintf("%s/oauth/authorize", c.Conf.AccountURI)
+	authorizeURL := fmt.Sprintf("%s/oauth2/authorize", c.Conf.AuthKitURI)
 	authURL, err := url.Parse(authorizeURL)
 	if err != nil {
 		return "", err
@@ -116,14 +116,16 @@ func (c *ClerkCli) createAuthorizeURL(
 	q.Set("code_challenge_method", "S256")
 	q.Set("client_id", c.Conf.ClientID)
 	q.Set("redirect_uri", c.Conf.RedirectURL())
-	q.Set("scope", "email offline_access profile")
+	if len(c.Conf.Scopes) > 0 {
+		q.Set("scope", joinScopes(c.Conf.Scopes))
+	}
 	q.Set("state", state)
 	q.Set("code_challenge", challenge)
 	authURL.RawQuery = q.Encode()
 	return authURL.String(), nil
 }
 
-func (c *ClerkCli) getValidToken(
+func (c *WorkOSCli) getValidToken(
 	ctx context.Context,
 	forceRefresh bool,
 ) (*oauth2.Token, error) {
@@ -150,7 +152,7 @@ func (c *ClerkCli) getValidToken(
 	if err != nil {
 		return nil, err
 	}
-	newCtok := ClerkToken{
+	newCtok := WorkOSToken{
 		AccessToken:  newTok.AccessToken,
 		RefreshToken: newTok.RefreshToken,
 		Expiry:       newTok.Expiry,
@@ -159,6 +161,17 @@ func (c *ClerkCli) getValidToken(
 		return nil, err
 	}
 	return newTok, nil
+}
+
+func joinScopes(scopes []string) string {
+	if len(scopes) == 0 {
+		return ""
+	}
+	combined := scopes[0]
+	for i := 1; i < len(scopes); i++ {
+		combined += " " + scopes[i]
+	}
+	return combined
 }
 
 func createPKCEPair() (verifier string, challenge string, err error) {
@@ -184,7 +197,7 @@ func createState() (string, error) {
 
 func exchangeCode(
 	ctx context.Context,
-	conf ClerkConf,
+	conf WorkOSConf,
 	code string,
 	codeVerifier string,
 ) (*oauth2.Token, error) {
@@ -203,7 +216,7 @@ func exchangeCode(
 	return tok, nil
 }
 
-func (c *ClerkCli) printdbg(msg string) {
+func (c *WorkOSCli) printdbg(msg string) {
 	if !c.debug {
 		return
 	}
